@@ -5,13 +5,15 @@ library(ggplot2)
 
 #Read data from GitHub
 tb_data <-read.csv(text=getURL("https://raw.githubusercontent.com/datamustekeers/WHOtb_data_analysis/master/data/TB_burden_countries_2018-07-04.csv"), header=T)
+all_countries = unique(tb_data$country)
 
 ui <- dashboardPage(
   dashboardHeader(title = "Draft WHO Dashboard"),
   dashboardSidebar(
       sidebarMenu(
         menuItem("Dashboard", tabName = "dashboard", icon = icon("dashboard")),
-        menuItem("Widgets", tabName = "widgets", icon = icon("th"))
+        menuItem("Widgets", tabName = "widgets", icon = icon("th")),
+        uiOutput("Choose_country")
   )),
   dashboardBody(
     tabItems(
@@ -41,30 +43,45 @@ ui <- dashboardPage(
 )
 
 server <- function(input, output) {
-  #select data before intiating selector.
-  country_data = subset(tb_data,country == "Kenya")
-  country_data  = country_data[,c("year","e_pop_num","e_inc_num")]
+  output$Choose_country <- renderUI({
+    selectInput("select", "Select a country", 
+                choices = all_countries, selected = all_countries[1])
+  })
+  
+  
+  get_data <- reactive({
+    #Get User selection
+    country_selected = input$select
+    #select data before intiating selector.
+    country_data = subset(tb_data,country == country_selected)
+    country_data  = country_data[,c("year","e_pop_num","e_inc_num")]
+    return(country_data)
+  })
   
   output$PopulationBox <- renderInfoBox({
+    country_data = get_data()
     infoBox(
       "Population Growth", paste0(round((((country_data[17,2] - country_data[1,2])/(country_data[1,2]))*100), 0), "%"), icon = icon("user", lib = "glyphicon"),
       color = "purple"
     )
   })
   output$TBBox <- renderInfoBox({
+    country_data = get_data()
     infoBox(
-      "Growth in TB Occurance", paste0(round((((country_data[17,3] - country_data[1,3])/(country_data[1,3]))*100), 0), "%"), icon = icon("arrow-up", lib = "glyphicon"),
+      "Growth in TB Occurance", paste0(round((((country_data[17,3] - country_data[1,3])/(country_data[1,3]))*100), 0), "%"), icon = icon("warning-sign", lib = "glyphicon"),
       color = "yellow"
     )
   })
   
   
   output$plot1 <- renderPlot({
+    country_data = get_data()
     ggplot(data = country_data, aes(x=year, y=e_pop_num)) +
       geom_line()
   })
   
   output$plot2 <- renderPlot({
+    country_data = get_data()
     ggplot(data = country_data, aes(x=year, y=e_inc_num)) +
       geom_line()
   })
